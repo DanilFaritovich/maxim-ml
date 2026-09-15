@@ -1,0 +1,22 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [".venv", "DataBase/db"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["main.py", "FastApiApp", "DataBase", "ML"]
+ignore_missing_imports = true
+follow_imports = "silent"
+explicit_package_bases = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true

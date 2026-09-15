@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local application data
+DataBase/db/*.db
+!DataBase/db/.gitkeep
+
+# Node.js
+node_modules/
+package-lock.json
+react-app/node_modules/
+react-app/build/
+
+# Environment and IDE files
+.env
+.env.*
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
