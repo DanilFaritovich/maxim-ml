@@ -28,9 +28,13 @@ The [project overview](docs/images/overview.png) introduces the available models
 
 - FastAPI REST API with Pydantic request and response models.
 - California Housing regression workflow using Linear Regression and Gradient Boosting Regressor.
-- Data preprocessing with outlier handling, scaling, and geohash-based location features.
-- Server-side model training with a persisted sklearn pipeline: feature engineering, target encoding,
-  and scaling are fitted only on the training split and reused unchanged by the prediction endpoint.
+- Data preprocessing with outlier handling, log transforms, scaling, and geohash-based location features.
+- Leakage-safe server-side training: the train/test split happens before fitted transformations, so the
+  TargetEncoder and StandardScaler see training rows only.
+- Each saved `joblib` artifact is a complete sklearn Pipeline — feature engineering, encoding, scaling,
+  and regressor — so inference always uses exactly the transformations fitted during training.
+- The California Housing dataset is loaded only for a training request; prediction-only API startup does
+  not trigger a dataset download.
 - SQLAlchemy 2.0 models for training history and prediction feedback.
 - Structured application logging and a health-check endpoint.
 
@@ -89,10 +93,40 @@ The frontend is focused on interaction and rendering. Dataset preparation, featu
 ## Key engineering decisions
 
 - **Backend-owned ML workflow.** The browser sends parameters and commands; the API performs training, inference, artifact management, and history recording.
+- **One artifact for training and inference.** A persisted sklearn Pipeline accepts raw housing fields at
+  prediction time. It applies the fitted preprocessing itself rather than fitting transforms on an API request.
 - **Persisted training audit trail.** Every training result, including failures and metrics, is stored in SQLite and exposed through the API.
 - **Reproducible local deployment.** Docker Compose packages frontend delivery, API runtime, data storage, and model artifacts in a single command.
 - **Quality gates before merge.** Static analysis and automated tests run for pull requests and updates to `develop` and `main`.
 - **Typed boundaries.** Pydantic models, TypeScript interfaces, and SQLAlchemy typed mappings make data contracts explicit across the stack.
+
+## ML lifecycle
+
+```text
+Training request
+      │
+      ▼
+raw dataset + approved feedback
+      │
+      ▼
+outlier filtering → train/test split
+      │                    │
+      │                    └── held-out metrics (R², MSE)
+      ▼
+fit Pipeline on train rows only
+  ├── log features + geohash
+  ├── TargetEncoder
+  ├── StandardScaler
+  └── regressor
+      │
+      ▼
+persist one joblib model artifact
+
+Prediction request → raw Pydantic fields → saved Pipeline.predict() → price estimate
+```
+
+The target encoder and scaler are never refitted during prediction. This prevents both target leakage in
+evaluation and the single-row scaling bug that would otherwise collapse numeric features towards zero.
 
 ## Run the application
 
@@ -111,7 +145,18 @@ docker compose up --build
 
 Open `http://127.0.0.1:8080`.
 
-Nginx serves the React build and proxies model, training, and feedback requests to FastAPI. SQLite data and model artifacts are kept in named Docker volumes across container recreation.
+Nginx serves the React build and proxies model, training, and feedback requests to FastAPI. SQLite data and
+complete model-pipeline artifacts are kept in named Docker volumes across container recreation.
+
+To rebuild a running local stack from the checked-out branch:
+
+```bash
+docker compose up --detach --build --force-recreate
+```
+
+The model volume is persistent. After a change to the model-artifact format, retrain both models through
+`POST /train/{model_name}` so that the volume contains compatible artifacts. For a disposable local demo,
+`docker compose down -v` removes all local database and model-volume data before a clean start.
 
 ## Run for development
 
@@ -191,9 +236,9 @@ Branch protection should require pull requests and successful CI checks for both
 ```text
 .
 ├── FastApiApp/          # FastAPI routers and API configuration
-├── ML/                  # dataset, preprocessing, training, and model utilities
+├── ML/                  # lazy dataset loading, pipeline construction, training, and model utilities
 ├── DataBase/            # SQLAlchemy models and SQLite configuration
-├── models/              # saved regressors and encoder artifact
+├── models/              # saved, self-contained sklearn Pipeline artifacts
 ├── react-app/           # React + TypeScript client
 ├── docs/images/         # README interface screenshots
 ├── .github/workflows/   # GitHub Actions CI pipeline
