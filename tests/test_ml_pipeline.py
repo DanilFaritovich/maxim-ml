@@ -33,7 +33,9 @@ def test_pipeline_uses_fitted_preprocessing_for_consistent_predictions() -> None
 
 def test_scaler_is_fitted_on_training_rows_not_prediction_row() -> None:
     features = _housing_rows()
-    pipeline = build_model_pipeline(LinearRegression()).fit(features, pd.Series(range(len(features))))
+    pipeline = build_model_pipeline(LinearRegression()).fit(
+        features, pd.Series(range(len(features)))
+    )
 
     transformed = pipeline.named_steps["preprocessor"].transform(features.iloc[[0]])
 

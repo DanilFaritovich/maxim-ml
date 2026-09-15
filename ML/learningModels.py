@@ -73,9 +73,7 @@ def _prepare_training_data(df_data: pd.DataFrame, df_target: pd.Series):
 
 
 def _split_training_data(df: pd.DataFrame):
-    return train_test_split(
-        df[FEATURE_COLUMNS], df["MedHouseVal"], test_size=0.33, random_state=42
-    )
+    return train_test_split(df[FEATURE_COLUMNS], df["MedHouseVal"], test_size=0.33, random_state=42)
 
 
 def learn_linear_regression_model(df_data: pd.DataFrame, df_target: pd.Series):
