@@ -10,7 +10,8 @@ from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from DataBase.database import get_db
 from DataBase.models import Feedback
 
-from .preprocessing import model_preprocessing
+from .emissions import del_values
+from .pipeline import FEATURE_COLUMNS, build_model_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -49,23 +50,38 @@ def get_fresh_feedback():
         session.close()
 
 
-def learn_linear_regression_model(df_data: pd.DataFrame, df_target: pd.DataFrame):
-    # print(df_target)
-    # Предобработка
-    data_columns = list(df_data.columns)
+def _prepare_training_data(df_data: pd.DataFrame, df_target: pd.Series):
+    """Filter labelled training rows before splitting raw features and targets."""
     df: pd.DataFrame = pd.concat([df_data, df_target], axis="columns")
     db_df = get_fresh_feedback()
     if not db_df.empty:
         df = pd.concat([df, db_df], axis="rows")
-    df = model_preprocessing(df, data_columns)
-
-    # print(df)
-    X_train, X_test, y_train, y_test = train_test_split(
-        df[data_columns], df["MedHouseVal"], test_size=0.33, random_state=42
+    return del_values(
+        df,
+        [
+            {"column": "MedInc", "operator": "<=", "number": 12},
+            {"column": "HouseAge", "operator": "<", "number": 52},
+            {"column": "AveRooms", "operator": "<", "number": 12},
+            {"column": "AveBedrms", "operator": "<", "number": 3},
+            {"column": "AveBedrms", "operator": ">", "number": 0.45},
+            {"column": "Population", "operator": "<", "number": 8000},
+            {"column": "AveOccup", "operator": "<", "number": 10.5},
+            {"column": "AveOccup", "operator": ">", "number": 0.8},
+            {"column": "MedHouseVal", "operator": "<", "number": 5},
+        ],
     )
 
-    # Моделирование
-    model = LinearRegression()
+
+def _split_training_data(df: pd.DataFrame):
+    return train_test_split(df[FEATURE_COLUMNS], df["MedHouseVal"], test_size=0.33, random_state=42)
+
+
+def learn_linear_regression_model(df_data: pd.DataFrame, df_target: pd.Series):
+    df = _prepare_training_data(df_data, df_target)
+
+    X_train, X_test, y_train, y_test = _split_training_data(df)
+
+    model = build_model_pipeline(LinearRegression())
     model.fit(X_train, y_train)
 
     y_pred = model.predict(X_test)
@@ -83,36 +99,25 @@ def learn_linear_regression_model(df_data: pd.DataFrame, df_target: pd.DataFrame
     return model, R2, MSE
 
 
-def learn_gradient_boosting_regressor_model(df_data: pd.DataFrame, df_target: pd.DataFrame):
-    # print(df_target)
-    # Предобработка
-    data_columns = list(df_data.columns)
-    df: pd.DataFrame = pd.concat([df_data, df_target], axis="columns")
-    db_df = get_fresh_feedback()
-    if not db_df.empty:
-        df = pd.concat([df, db_df], axis="index")
-    df = model_preprocessing(df, data_columns)
-
-    # print(df)
-    X_train, X_test, y_train, y_test = train_test_split(
-        df[data_columns], df["MedHouseVal"], test_size=0.33, random_state=42
-    )
+def learn_gradient_boosting_regressor_model(df_data: pd.DataFrame, df_target: pd.Series):
+    df = _prepare_training_data(df_data, df_target)
+    X_train, X_test, y_train, y_test = _split_training_data(df)
 
     # Параметры для подбора
     param_dist = {
-        "n_estimators": randint(50, 300),
-        "learning_rate": uniform(0.01, 0.3),
-        "max_depth": randint(1, 10),
-        "min_samples_split": randint(2, 11),
-        "min_samples_leaf": randint(1, 6),
-        "subsample": uniform(0.6, 0.4),  # 0.6 до 1.0
+        "regressor__n_estimators": randint(50, 300),
+        "regressor__learning_rate": uniform(0.01, 0.3),
+        "regressor__max_depth": randint(1, 10),
+        "regressor__min_samples_split": randint(2, 11),
+        "regressor__min_samples_leaf": randint(1, 6),
+        "regressor__subsample": uniform(0.6, 0.4),  # 0.6 до 1.0
     }
 
     # Настройка метрик
     scoring = {"r2": "r2", "mse": "neg_mean_squared_error"}
 
     # Модель
-    model = GradientBoostingRegressor(random_state=42)
+    model = build_model_pipeline(GradientBoostingRegressor(random_state=42))
 
     # Поиск лучших параметров
     search = RandomizedSearchCV(
