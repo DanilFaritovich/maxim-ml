@@ -1,36 +1,50 @@
 # MaximML
 
+[![CI](https://github.com/DanilFaritovich/maxim-ml/actions/workflows/ci.yml/badge.svg)](https://github.com/DanilFaritovich/maxim-ml/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-red)](https://www.sqlalchemy.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-f7931e?logo=scikitlearn)](https://scikit-learn.org/)
 [![React](https://img.shields.io/badge/React-Frontend-61dafb?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Frontend-3178c6?logo=typescript)](https://www.typescriptlang.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ed?logo=docker)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**MaximML** is a full-stack machine-learning application for training regression models, predicting California Housing prices, and collecting feedback on prediction results. It combines a FastAPI backend, SQLite persistence, and a typed React interface.
+**MaximML** is a full-stack machine-learning application for estimating California housing prices, retraining regression models, and collecting feedback on predictions. It combines a FastAPI API, typed React interface, SQLite persistence, Docker deployment, and automated quality gates.
 
-The project was built as a portfolio application to demonstrate practical Python ML workflows together with an HTTP API, a TypeScript frontend, model persistence, and local training history.
+The project was built as a portfolio application to demonstrate an end-to-end Python ML workflow: data preparation and model persistence on the backend, a practical client interface, reproducible local deployment, and CI verification before merge.
+
+## Interface
+
+| Prediction workspace | Model training |
+| --- | --- |
+| ![Housing-price prediction form](docs/images/prediction.png) | ![Model training and history screen](docs/images/training.png) |
+
+The [project overview](docs/images/overview.png) introduces the available models, input features, and API-backed workflow.
 
 ## What this project demonstrates
 
-### Backend and ML
+### Backend and ML engineering
 
-- FastAPI REST API with typed Pydantic request and response models.
-- Regression workflow based on the California Housing dataset.
-- Linear Regression and Gradient Boosting Regressor training pipelines.
-- Feature preprocessing, outlier handling, geohash-based location features, and scaling.
-- Saved model artifacts loaded by the prediction API.
-- SQLAlchemy models for training history and user feedback.
-- CORS configuration for the local React client.
+- FastAPI REST API with Pydantic request and response models.
+- California Housing regression workflow using Linear Regression and Gradient Boosting Regressor.
+- Data preprocessing with outlier handling, scaling, and geohash-based location features.
+- Server-side model training and persisted `joblib` / pickle artifacts used by the prediction endpoint.
+- SQLAlchemy 2.0 models for training history and prediction feedback.
+- Structured application logging and a health-check endpoint.
 
-### Frontend
+### Frontend engineering
 
-- React + TypeScript single-page interface.
-- Forms for submitting housing characteristics and receiving predictions.
-- Controls for launching model training.
-- Training history view backed by the FastAPI API.
-- Typed Axios client for backend requests.
+- React + TypeScript single-page application with typed Axios API clients.
+- Guided housing-parameter form with model selection and prediction results.
+- Training controls for both regression models and a persistent training-history view.
+- Clear empty, loading, successful, and failed request states.
+
+### Delivery and quality
+
+- Docker Compose starts the React client, Nginx reverse proxy, FastAPI service, SQLite storage, and model volume.
+- GitHub Actions runs backend quality checks, backend tests, frontend formatting, linting, type checks, tests, production build, and Docker image builds.
+- Repository workflow uses `main`, `develop`, and feature branches with pull requests into `develop`.
 
 ## Tech stack
 
@@ -38,11 +52,12 @@ The project was built as a portfolio application to demonstrate practical Python
 | --- | --- |
 | Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy |
 | Machine learning | scikit-learn, pandas, NumPy, category-encoders |
+| Backend quality | Pytest, Ruff, Mypy |
 | Frontend | React, TypeScript, Axios, Create React App |
+| Frontend quality | Prettier, ESLint, TypeScript, Jest |
 | Infrastructure | Docker, Docker Compose, Nginx |
 | CI | GitHub Actions |
 | Persistence | SQLite |
-| Model artifacts | joblib / pickle |
 
 ## Architecture
 
@@ -51,23 +66,36 @@ React / TypeScript UI
         │
         │ HTTP
         ▼
+Nginx reverse proxy
+        │
+        ▼
 FastAPI routers
         │
         ├── Prediction router
         ├── Training router
         └── Feedback router
                 │
-                ├── ML preprocessing and model services
+                ├── ML preprocessing and training services
                 ├── Saved model artifacts
-                └── SQLAlchemy
+                └── SQLAlchemy repositories
                         │
                         ▼
                       SQLite
 ```
 
-The frontend is responsible for user interaction and API requests. Dataset preparation, training, prediction, and persistence remain on the backend.
+The frontend is focused on interaction and rendering. Dataset preparation, feature engineering, inference, model training, and persistence remain backend-authoritative and independently testable.
 
-## Run the application with Docker
+## Key engineering decisions
+
+- **Backend-owned ML workflow.** The browser sends parameters and commands; the API performs training, inference, artifact management, and history recording.
+- **Persisted training audit trail.** Every training result, including failures and metrics, is stored in SQLite and exposed through the API.
+- **Reproducible local deployment.** Docker Compose packages frontend delivery, API runtime, data storage, and model artifacts in a single command.
+- **Quality gates before merge.** Static analysis and automated tests run for pull requests and updates to `develop` and `main`.
+- **Typed boundaries.** Pydantic models, TypeScript interfaces, and SQLAlchemy typed mappings make data contracts explicit across the stack.
+
+## Run the application
+
+### Docker — recommended
 
 Requirements:
 
@@ -75,45 +103,33 @@ Requirements:
 - Docker Compose
 
 ```bash
+git clone git@github.com:DanilFaritovich/maxim-ml.git
+cd maxim-ml
 docker compose up --build
 ```
 
-Open the application at:
+Open `http://127.0.0.1:8080`.
 
-```text
-http://127.0.0.1:8080
-```
-
-Nginx serves the React build and proxies API requests to the FastAPI container. The SQLite database and trained model artifacts are stored in named Docker volumes, so they survive container recreation.
+Nginx serves the React build and proxies model, training, and feedback requests to FastAPI. SQLite data and model artifacts are kept in named Docker volumes across container recreation.
 
 ## Run for development
 
 ### Backend
 
-Requirements: Python 3.12. The pinned dependency set has not been verified with newer Python releases.
+Requirements: Python 3.12.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 uvicorn main:app --reload
 ```
 
-Backend:
-
-```text
-http://127.0.0.1:8000
-```
-
-FastAPI docs:
-
-```text
-http://127.0.0.1:8000/docs
-```
+FastAPI docs: `http://127.0.0.1:8000/docs`.
 
 ### Frontend
 
-Requirements: Node.js and npm.
+Requirements: Node.js 20 and npm.
 
 ```bash
 cd react-app
@@ -121,50 +137,23 @@ npm ci
 npm start
 ```
 
-The client normally starts at:
-
-```text
-http://localhost:3000
-```
-
-For local development, configure a development proxy or run the frontend through Docker Compose.
+The development server normally starts at `http://localhost:3000`. The backend allows the local React development origin through CORS.
 
 ## API overview
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
+| `GET` | `/health` | Service health check |
 | `POST` | `/predict/{model_name}` | Predict a housing price |
-| `POST` | `/train/{model_name}` | Train and save a model |
-| `GET` | `/train/history` | Return training history |
-| `POST` | `/train_feedback/feedback` | Store prediction feedback |
+| `POST` | `/train/{model_name}` | Train and persist a model |
+| `GET` | `/train/history` | Return model-training history |
+| `POST` | `/train_feedback/feedback` | Store feedback for a prediction |
 
-Supported `{model_name}` values:
-
-- `linear_regression`
-- `gradient_boosting_regressor`
-
-Example prediction request:
-
-```bash
-curl -X POST http://127.0.0.1:8000/predict/gradient_boosting_regressor \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "MedInc": 8.3252,
-    "HouseAge": 41,
-    "AveRooms": 6.984127,
-    "AveBedrms": 1.023810,
-    "Population": 322,
-    "AveOccup": 2.264706,
-    "Latitude": 37.88,
-    "Longitude": -122.23
-  }'
-```
+Supported models: `linear_regression` and `gradient_boosting_regressor`.
 
 ## Quality checks
 
 ### Backend
-
-Install development dependencies and run:
 
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
@@ -174,7 +163,7 @@ mypy
 pytest -q
 ```
 
-### Frontend production build
+### Frontend
 
 ```bash
 cd react-app
@@ -185,41 +174,44 @@ npm run test:ci
 npm run build
 ```
 
-GitHub Actions runs these quality checks for pull requests and commits to `develop` and `main`, then verifies that Docker images build successfully.
+GitHub Actions executes these checks on pull requests and changes to `develop` and `main`, followed by a Docker image build.
 
 ## Development workflow
 
-- `main` contains reviewed, release-ready code.
-- `develop` is the integration branch for completed changes.
-- Create feature and fix branches from `develop`, then open a merge request back to `develop`.
-- Merge `develop` into `main` through a reviewed merge request after all CI jobs pass.
+1. Create a `feature/...` or `fix/...` branch from `develop`.
+2. Open a pull request into `develop`.
+3. Merge after the CI workflow succeeds.
+4. Promote reviewed `develop` changes to `main` through a separate pull request.
 
-Direct pushes to `main` and `develop` must be disabled with GitHub branch protection rules.
+Branch protection should require pull requests and successful CI checks for both `main` and `develop`.
 
 ## Project structure
 
 ```text
 .
-├── FastApiApp/          # FastAPI application and API routers
+├── FastApiApp/          # FastAPI routers and API configuration
 ├── ML/                  # dataset, preprocessing, training, and model utilities
 ├── DataBase/            # SQLAlchemy models and SQLite configuration
-├── models/              # saved regressors and encoder
+├── models/              # saved regressors and encoder artifact
 ├── react-app/           # React + TypeScript client
-├── requirements.txt     # Python dependencies
-└── main.py              # backend entry point
+├── docs/images/         # README interface screenshots
+├── .github/workflows/   # GitHub Actions CI pipeline
+├── docker-compose.yml   # full-stack local environment
+└── pyproject.toml       # Python tooling configuration
 ```
 
 ## Current limitations
 
-- SQLite is used for the current local demo build.
-- Model artifacts are versioned directly in Git; Git LFS may be appropriate if they grow substantially.
+- SQLite is intended for the current local demo rather than multi-user production use.
+- The California Housing dataset is used as a fixed demonstration dataset.
+- Model artifacts are versioned directly in Git; Git LFS would be appropriate if artifacts grow substantially.
 
 ## Possible next steps
 
-- Add automated backend and frontend test suites.
-- Add CI checks for formatting, tests, and production builds.
-- Move API configuration to environment variables.
-- Add model-quality metrics and dataset versioning to the interface.
+- Add model comparison and validation metrics to the UI.
+- Introduce dataset and model versioning.
+- Move configuration and secrets to environment variables.
+- Add PostgreSQL and authenticated user workspaces for a deployed version.
 
 ## License
 
