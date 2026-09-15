@@ -1,11 +1,10 @@
 import traceback
 
-import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ML import load_model, preprocessing_data_df
+from ML import load_model
 
 router = APIRouter(prefix="/predict", tags=["Predict"])
 
@@ -38,27 +37,8 @@ async def predict_item(model_name: str, data: PredictionRequest):
         else:
             raise FileNotFoundError()
 
-        # Преобразуем входные данные в массив numpy нужной формы
-        input_data = np.array(
-            [
-                [
-                    data.MedInc,
-                    data.HouseAge,
-                    data.AveRooms,
-                    data.AveBedrms,
-                    data.Population,
-                    data.AveOccup,
-                    data.Latitude,
-                    data.Longitude,
-                ]
-            ]
-        )
-
-        input_data = preprocessing_data_df(
-            pd.DataFrame(input_data, columns=list(data.__dict__.keys()))
-        )
-
-        # Предсказание
+        # The persisted pipeline transforms raw fields using preprocessing fitted during training.
+        input_data = pd.DataFrame([data.model_dump()])
         prediction = model.predict(input_data)[0]
         prediction = round(prediction * 100_000, 3)
 

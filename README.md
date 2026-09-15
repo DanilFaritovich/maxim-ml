@@ -29,7 +29,8 @@ The [project overview](docs/images/overview.png) introduces the available models
 - FastAPI REST API with Pydantic request and response models.
 - California Housing regression workflow using Linear Regression and Gradient Boosting Regressor.
 - Data preprocessing with outlier handling, scaling, and geohash-based location features.
-- Server-side model training and persisted `joblib` / pickle artifacts used by the prediction endpoint.
+- Server-side model training with a persisted sklearn pipeline: feature engineering, target encoding,
+  and scaling are fitted only on the training split and reused unchanged by the prediction endpoint.
 - SQLAlchemy 2.0 models for training history and prediction feedback.
 - Structured application logging and a health-check endpoint.
 
