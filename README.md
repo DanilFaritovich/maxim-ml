@@ -1,5 +1,7 @@
 # MaximML
 
+**English** | [Русский](README.ru.md)
+
 [![CI](https://github.com/DanilFaritovich/maxim-ml/actions/workflows/ci.yml/badge.svg)](https://github.com/DanilFaritovich/maxim-ml/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
